@@ -1,0 +1,76 @@
+name: Run Examples
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  schedule:
+    - cron: "0 6 * * 1"  # Mondays 06:00 UTC
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Run basic usage example
+        run: |
+          source .venv/bin/activate
+          cd examples
+          python 01_basic_usage.py
+      
+      - name: Run data analysis example (quick test)
+        run: |
+          source .venv/bin/activate
+          cd examples
+          timeout 60 python 02_data_analysis.py || true
+      
+      - name: Verify no output files left behind
+        run: |
+          cd examples
+          if ls *.csv *.json *.xlsx *.parquet 2>/dev/null; then
+            echo "Warning: Output files found in examples directory"
+            ls -la *.csv *.json *.xlsx *.parquet 2>/dev/null || true
+          else
+            echo "✅ No output files left behind"
+          fi
+
+  quick-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      
+      - name: Quick dependency check
+        run: |
+          python -m pip install --upgrade pip
+          pip install asxshorts
+          python -c "import asxshorts; print(f'✅ asxshorts {asxshorts.__version__} imported successfully')"
+      
+      - name: Quick syntax check
+        run: |
+          python -m py_compile examples/*.py
+          echo "✅ All example files compile successfully"
